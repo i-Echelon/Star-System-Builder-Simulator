@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Star System Builder & Simulator</title>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #111823;
+      --panel-2: #0e1520;
+      --text: #e9f0f8;
+      --muted: #9fb3c8;
+      --accent: #7cc4ff;
+      --accent-2: #6ee7b7;
+      --danger: #ff7575;
+      --warning: #ffd166;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji"; color: var(--text); background: radial-gradient(800px 800px at 70% 10%, #0f172a 0%, var(--bg) 60%); }
+    header { display: flex; gap: 12px; align-items: center; padding: 12px 14px; border-bottom: 1px solid #1f2937; background: linear-gradient(180deg, #0e1520, #0a0f16); position: sticky; top: 0; z-index: 50; }
+    header h1 { font-size: 18px; margin: 0; letter-spacing: .5px; }
+    .wrap { display: grid; grid-template-columns: 360px 1fr; height: calc(100% - 58px); }
+    aside { background: linear-gradient(180deg, var(--panel), var(--panel-2)); border-right: 1px solid #1f2937; padding: 12px; overflow: auto; }
+    main { position: relative; }
+    canvas { width: 100%; height: 100%; display: block; background: radial-gradient(1200px 900px at 60% 20%, #0b1020 0%, #0a0f16 45%, #06090f 70%); }
+
+    .section { margin-bottom: 14px; border: 1px solid #203040; border-radius: 12px; background: #0c1320; overflow: hidden; }
+    .section > .head { display:flex; align-items:center; justify-content: space-between; padding: 10px 12px; background: #0e1a2b; font-weight: 600; font-size: 13px; color: #cbe3ff; }
+    .section .body { padding: 10px 12px; display: grid; gap: 8px; }
+
+    label { display: grid; gap: 6px; font-size: 12px; color: var(--muted); }
+    input[type="text"], input[type="number"], select, textarea { width: 100%; padding: 8px 10px; background: #0b1220; border: 1px solid #213049; color: var(--text); border-radius: 8px; font-size: 13px; }
+    input[type="file"] { font-size: 12px; color: var(--muted); }
+
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .btns { display: flex; flex-wrap: wrap; gap: 8px; }
+    button { padding: 8px 10px; border-radius: 10px; border: 1px solid #2a3b5c; background: #0f1a2c; color: var(--text); cursor: pointer; font-weight: 600; font-size: 13px; }
+    button:hover { border-color: #3c567f; filter: brightness(1.04); }
+    .btn-primary { background: linear-gradient(180deg, #1f3a5e, #132743); border-color: #2e4a72; }
+    .btn-green { background: linear-gradient(180deg, #1d3f37, #0f2a23); border-color: #335d51; }
+    .btn-danger { background: linear-gradient(180deg, #43222a, #2b151a); border-color: #6b2f3d; }
+    .kbadge { font-size: 10px; padding: 2px 8px; border-radius: 99px; background: #10263d; color: #9dd1ff; border: 1px solid #254562; }
+
+    .list { display: grid; gap: 6px; }
+    .item { border: 1px solid #1e2a3f; background: #0b1320; border-radius: 10px; padding: 8px 10px; display:flex; align-items:center; justify-content: space-between; gap: 6px; }
+    .item small { color: var(--muted); }
+
+    .footer { position: absolute; right: 16px; bottom: 16px; display: flex; gap: 8px; }
+
+    .tip { color: #9fb3c8; font-size: 12px; }
+    details { border: 1px dashed #29415f; padding: 8px 10px; border-radius: 10px; background: #0b1422; }
+    details summary { cursor: pointer; color: #cfe8ff; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Star System Builder & Simulator</h1>
+    <span class="kbadge">Reads your JSON (with comments) • animates orbits • exports customStarSystems.json</span>
+  </header>
+  <div class="wrap">
+    <aside>
+      <!-- ✅ your full left UI restored -->
+      <div class="section">
+        <div class="head">1) Load JSON files</div>
+        <div class="body">
+          <label>
+            Select one or more JSON files
+            <input id="fileInput" type="file" multiple accept=".json,.json5,.txt" />
+          </label>
+          <details>
+            <summary>What formats are supported?</summary>
+            <div class="tip">
+              This tool tolerates <b>comments</b> (<code>#</code>, <code>//</code>, <code>/* ... */</code>) and trailing commas. It can read the structures used by your <code>customStarSystems.json</code>, presets, reference guides, and settings.
+            </div>
+          </details>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="head">2) Choose a system</div>
+        <div class="body">
+          <label>System key
+            <select id="systemSelect"></select>
+          </label>
+          <div class="btns">
+            <button id="btnFocus" class="btn-primary">Center camera on system</button>
+            <button id="btnTeleport" title="Use setLocation if present">Teleport to setLocation</button>
+            <button id="btnResetView">Reset view</button>
+          </div>
+          <div class="list" id="entityList"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="head">3) Add / Edit entity</div>
+        <div class="body">
+          <label>Type
+            <select id="entityType">
+              <option value="star">star</option>
+              <option value="planet">planet</option>
+              <option value="ring">ring</option>
+              <option value="asteroid_belt">asteroid_belt</option>
+              <option value="jump_point">jump_point</option>
+              <option value="comm_relay">comm_relay</option>
+              <option value="sensor_array">sensor_array</option>
+              <option value="nav_buoy">nav_buoy</option>
+              <option value="inactive_gate">inactive_gate</option>
+              <option value="magnetic_field">magnetic_field</option>
+              <option value="debris_field">debris_field</option>
+              <option value="empty_location">empty_location</option>
+            </select>
+          </label>
+          <div class="row">
+            <label>Name <input id="entityName" type="text" placeholder="Optional" /></label>
+            <label>Focus (index or [f,l]) <input id="entityFocus" type="text" placeholder="0 or [1,4]" /></label>
+          </div>
+          <div class="row">
+            <label>Orbit radius <input id="entityOrbitRadius" type="number" value="2000" /></label>
+            <label>Orbit days <input id="entityOrbitDays" type="number" value="365" /></label>
+          </div>
+          <div class="row">
+            <label>Radius/Size <input id="entityRadius" type="number" value="100" /></label>
+            <label>Type ID <input id="entitySubtype" type="text" placeholder="star_yellow / terran / gas_giant" /></label>
+          </div>
+          <label>Conditions (comma-separated)
+            <input id="entityConditions" type="text" placeholder="habitable,mild_climate,farmland_bountiful" />
+          </label>
+          <div class="btns">
+            <button id="btnAddEntity" class="btn-green">Add entity</button>
+            <button id="btnUpdateEntity">Update selected</button>
+            <button id="btnDeleteEntity" class="btn-danger">Delete selected</button>
+          </div>
+          <small class="tip">Select an item in the list above to edit it. Index is its position in the <code>entities</code> array.</small>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="head">4) Export</div>
+        <div class="body">
+          <div class="btns">
+            <button id="btnExport" class="btn-primary">Download customStarSystems.json</button>
+            <button id="btnExportSystemOnly">Download selected system JSON</button>
+          </div>
+          <small class="tip">The export matches the schema used by the mod (systems keyed by ID). You can merge with other mods as usual.</small>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="head">Notes</div>
+        <div class="body">
+          <details open>
+            <summary>Orbit simulation</summary>
+            <div class="tip">If an entity has <code>orbitDays</code>, we animate its angle accordingly. If missing/0, a reasonable default based on radius is used. <code>focus</code> may be a number (index) or a stable-point pair like <code>[1,4]</code> (L4) — we visualize both.</div>
+          </details>
+          <details>
+            <summary>Comment-tolerant parser</summary>
+            <div class="tip">Files can include <code>#</code> style comments (and <code>//</code>, <code>/* */</code>) and trailing commas. The loader strips these before parsing. If a file contains several top-level objects (e.g., presets + comments), each system is added to the catalog.</div>
+          </details>
+        </div>
+      </div>
+    </aside>
+
+    <main>
+      <canvas id="view"></canvas>
+      <div class="footer">
+        <span class="kbadge" id="status">No files loaded</span>
+      </div>
+    </main>
+  </div>
+
+<script>
+  // ----------------------- Utilities ----------------------- //
+function stripCommentsAndTrailingCommas(text) {
+  // remove BOM
+  text = text.replace(/^\uFEFF/, "");
+
+  // strip /* ... */ block comments
+  text = text.replace(/\/\*[\s\S]*?\*\//g, "");
+
+  // strip // line comments
+  text = text.replace(/(^|[^:])\/\/.*$/gm, "$1");
+
+  // strip # line comments (start or after whitespace)
+  text = text.replace(/(^|\s)#.*$/gm, "$1");
+
+  // remove trailing commas before ] or }
+  text = text.replace(/,\s*([}\]])/g, "$1");
+
+  // ensure commas between } {
+  text = text.replace(/}\s*{/g, "},\n{");
+
+  // strip any non-JSON garbage after last closing brace
+  const lastBrace = text.lastIndexOf("}");
+  if (lastBrace !== -1) text = text.slice(0, lastBrace + 1);
+
+  return text.trim();
+}
+
+function parsePossiblyCommentedJSON(text) {
+  return JSON.parse(stripCommentsAndTrailingCommas(text));
+}
+
+  function parsePossiblyCommentedJSON(text) {
+    return JSON.parse(stripCommentsAndTrailingCommas(text));
+  }
+
+  // Resolve CSS var for canvas strokes (canvas can't use 'var(--...)' directly)
+  const accentColor = (getComputedStyle(document.documentElement)
+    .getPropertyValue('--accent') || '#7cc4ff').trim();
+
+  // ----------------------- Global state ----------------------- //
+  const Catalog = { systems:{}, selectedKey:null, get selected(){ return this.systems[this.selectedKey]; } };
+  let entities = [];
+  let selectedIndex = -1;
+
+  // Canvas
+  const canvas = document.getElementById('view'), ctx = canvas.getContext('2d');
+  const DPR = Math.max(1, window.devicePixelRatio || 1);
+  const cam = { x:0, y:0, zoom:1 };
+  let t0 = Date.now();
+
+  function resizeCanvas() {
+    canvas.width  = canvas.clientWidth  * DPR;
+    canvas.height = canvas.clientHeight * DPR;
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }
+  window.addEventListener('resize', resizeCanvas);
+  resizeCanvas();
+
+  // ----------------------- UI helpers ----------------------- //
+  function getFormEntity(){
+    const rawFocus = document.getElementById('entityFocus').value.trim();
+    let focus;
+    if (rawFocus) { try { focus = JSON.parse(rawFocus); } catch { focus = isNaN(+rawFocus) ? rawFocus : +rawFocus; } }
+    const ent = {
+      entity: document.getElementById('entityType').value,
+      type:   document.getElementById('entitySubtype').value || undefined, // <-- use 'type', not 'subtype'
+      name:   document.getElementById('entityName').value || undefined,
+      focus,
+    };
+    const orad = +document.getElementById('entityOrbitRadius').value; if (orad) ent.orbitRadius = orad;
+    const od   = +document.getElementById('entityOrbitDays').value;   if (!Number.isNaN(od)) ent.orbitDays = od;
+    const rad  = +document.getElementById('entityRadius').value;      if (!Number.isNaN(rad)) ent.radius = rad;
+    const cond = document.getElementById('entityConditions').value.trim();
+    if (cond) ent.conditions = cond.split(',').map(s=>s.trim()).filter(Boolean);
+    return ent;
+  }
+
+  function fillFormFromEntity(ent){
+    document.getElementById('entityType').value      = ent.entity || 'planet';
+    document.getElementById('entityName').value      = ent.name   || '';
+    document.getElementById('entitySubtype').value   = ent.type   || '';
+    document.getElementById('entityFocus').value     = Array.isArray(ent.focus) ? JSON.stringify(ent.focus) : (ent.focus ?? '');
+    document.getElementById('entityOrbitRadius').value = ent.orbitRadius ?? 0;
+    document.getElementById('entityOrbitDays').value   = ent.orbitDays   ?? 0;
+    document.getElementById('entityRadius').value      = ent.radius      ?? 0;
+    document.getElementById('entityConditions').value  = (ent.conditions || []).join(',');
+  }
+
+  function renderEntityList(){
+    const list = document.getElementById('entityList');
+    list.innerHTML = '';
+    (entities||[]).forEach((ent, i)=>{
+      const item = document.createElement('div');
+      item.className = 'item';
+      item.innerHTML = `<div><strong>#${i}</strong> ${ent.entity}<small> — ${ent.name||''}</small></div>`;
+      const btns = document.createElement('div');
+      const sel  = document.createElement('button'); sel.textContent='Edit';
+      const up   = document.createElement('button'); up.textContent='↑'; up.title='Move up';
+      const down = document.createElement('button'); down.textContent='↓'; down.title='Move down';
+      sel.onclick  = ()=>{ selectedIndex=i; highlightSelected(i); fillFormFromEntity(ent); };
+      up.onclick   = ()=>{ if(i>0){ [entities[i-1], entities[i]] = [entities[i], entities[i-1]]; selectedIndex = i-1; renderEntityList(); draw(true); } };
+      down.onclick = ()=>{ if(i<entities.length-1){ [entities[i+1], entities[i]] = [entities[i], entities[i+1]]; selectedIndex = i+1; renderEntityList(); draw(true); } };
+      btns.append(sel, up, down);
+      if (i===selectedIndex) item.style.outline = `2px solid ${accentColor}`;
+      item.append(btns);
+      list.appendChild(item);
+    });
+  }
+
+  function highlightSelected(i){
+    selectedIndex=i;
+    renderEntityList();
+  }
+
+  // ----------------------- Orbit math + drawing ----------------------- //
+  function computeAngle(days, idx){
+    const now = Date.now(), dt = (now - t0) / 1000; // seconds since load
+    const period = (days && days > 0) ? days : (1000 + idx * 73);
+    return (dt / period) * Math.PI * 2;
+  }
+
+  function getFocusPosition(ents, focus, idx){
+    if (Array.isArray(focus)) {
+      const [fIndex, lag] = focus;
+      const base = getEntityPosition(ents, fIndex) || {x:0, y:0};
+      const r = 1, a = (lag/6) * Math.PI * 2;
+      return { x: base.x + Math.cos(a)*r, y: base.y + Math.sin(a)*r };
+    }
+    const f = Number.isFinite(focus) ? focus : 0;
+    return getEntityPosition(ents, f) || {x:0,y:0};
+  }
+
+  function getEntityPosition(ents, idx){
+    const ent = ents[idx]; if (!ent) return null;
+    if (idx === 0) return {x:0, y:0};
+    const center = getFocusPosition(ents, ent.focus ?? 0, idx);
+    const r = ent.orbitRadius ?? 2000;
+    const dir = (ent.orbitClockwise === false) ? -1 : 1; // support CCW when explicitly false
+    const a = computeAngle(ent.orbitDays ?? 0, idx) * dir + (ent.orbitAngle || 0) * Math.PI/180;
+    return { x: center.x + Math.cos(a)*r, y: center.y + Math.sin(a)*r };
+  }
+
+  function toScreen(pt){
+    return { x: (pt.x + cam.x) * cam.zoom + canvas.clientWidth/2,
+             y: (pt.y + cam.y) * cam.zoom + canvas.clientHeight/2 };
+  }
+
+  function draw(clear=true){
+    if (clear) ctx.clearRect(0,0,canvas.width,canvas.height);
+    if (!entities) return;
+
+    // Orbits
+    ctx.save();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(124,196,255,0.25)';
+    entities.forEach((ent, i)=>{
+      if (i===0) return;
+      const c = getFocusPosition(entities, ent.focus ?? 0, i);
+      const s = toScreen(c);
+      const r = (ent.orbitRadius ?? 2000) * cam.zoom;
+      ctx.beginPath();
+      ctx.arc(s.x * DPR, s.y * DPR, r * DPR, 0, Math.PI*2);
+      ctx.stroke();
+    });
+    ctx.restore();
+
+    // Bodies
+    entities.forEach((ent, i)=>{
+      const p = getEntityPosition(entities, i); if (!p) return;
+      const s = toScreen(p);
+      const radius = Math.max(3, (ent.radius || 80) * 0.08 * cam.zoom);
+      let fill = '#cfe8ff';
+      if (ent.entity === 'star') fill = '#ffd27a';
+      if (ent.entity === 'planet') fill = '#9ee3ff';
+      if (ent.entity === 'empty_location') fill = '#d1b3ff';
+      if ((ent.type||'').includes('gas')) fill = '#a6d6ff';
+
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(s.x * DPR, s.y * DPR, radius * DPR, 0, Math.PI*2);
+      ctx.fillStyle = fill; ctx.fill();
+
+      if (i === selectedIndex) {
+        ctx.lineWidth = 2 * DPR;
+        ctx.strokeStyle = accentColor; // solid accent on canvas
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      if (ent.name) {
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.font = `${12 * DPR}px ui-sans-serif`;
+        ctx.fillText(ent.name, (s.x + radius + 4) * DPR, (s.y - radius - 2) * DPR);
+      }
+    });
+
+    requestAnimationFrame(()=>draw(true));
+  }
+
+  // ----------------------- File import/export ----------------------- //
+  document.getElementById('fileInput').addEventListener('change', async (e)=>{
+    const files = Array.from(e.target.files||[]);
+    for (const f of files) {
+      const text = await f.text();
+      try {
+        const obj = parsePossiblyCommentedJSON(text);
+        Object.assign(Catalog.systems, obj);
+      } catch (err) {
+        alert(`Could not parse ${f.name}:\n${err.message}`);
+      }
+    }
+    const sel = document.getElementById('systemSelect');
+    sel.innerHTML = Object.keys(Catalog.systems).map(k=>`<option value="${k}">${k}</option>`).join('');
+    if (!Catalog.selectedKey && sel.value) {
+      Catalog.selectedKey = sel.value;
+      entities = Catalog.selected.entities || [];
+      selectedIndex = -1;
+      renderEntityList(); draw(true);
+    }
+    document.getElementById('status').textContent = `${Object.keys(Catalog.systems).length} system(s) loaded`;
+  });
+
+  document.getElementById('systemSelect').addEventListener('change', (e)=>{
+    Catalog.selectedKey = e.target.value;
+    entities = Catalog.selected.entities || [];
+    selectedIndex = -1;
+    renderEntityList(); draw(true);
+  });
+
+  document.getElementById('btnExport').onclick = ()=>{
+    const blob = new Blob([JSON.stringify(Catalog.systems, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'customStarSystems.json'; a.click();
+    URL.revokeObjectURL(a.href);
+  };
+  document.getElementById('btnExportSystemOnly').onclick = ()=>{
+    if (!Catalog.selectedKey) return;
+    const blob = new Blob([JSON.stringify({[Catalog.selectedKey]: Catalog.selected}, null, 2)], {type:'application/json'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = `${Catalog.selectedKey}.json`; a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  // ----------------------- Entity actions ----------------------- //
+  document.getElementById('btnAddEntity').onclick = ()=>{
+    if (!Catalog.selected) return;
+    Catalog.selected.entities = Catalog.selected.entities || [];
+    Catalog.selected.entities.push(getFormEntity());
+    entities = Catalog.selected.entities;
+    selectedIndex = -1;
+    renderEntityList(); draw(true);
+  };
+  document.getElementById('btnUpdateEntity').onclick = ()=>{
+    if (!Catalog.selected || selectedIndex < 0) return alert('Select an entity to update (click Edit).');
+    Catalog.selected.entities[selectedIndex] = getFormEntity();
+    entities = Catalog.selected.entities;
+    renderEntityList(); draw(true);
+  };
+  document.getElementById('btnDeleteEntity').onclick = ()=>{
+    if (!Catalog.selected || selectedIndex < 0) return alert('Select an entity to delete (click Edit).');
+    Catalog.selected.entities.splice(selectedIndex, 1);
+    entities = Catalog.selected.entities;
+    selectedIndex = -1;
+    renderEntityList(); draw(true);
+  };
+
+  // ----------------------- Camera quick controls ----------------------- //
+  document.getElementById('btnResetView').onclick = ()=>{ cam.x=0; cam.y=0; cam.zoom=1; draw(true); };
+  document.getElementById('btnFocus').onclick     = ()=>{ cam.x=0; cam.y=0; draw(true); };
+  document.getElementById('btnTeleport').onclick  = ()=>{
+    const sys = Catalog.selected; if (!sys) return;
+    const loc = sys.setLocation;
+    if (Array.isArray(loc) && loc.length>=2) { cam.x = -loc[0]; cam.y = -loc[1]; cam.zoom = 0.05; draw(true); }
+    else alert('This system does not use setLocation [x,y].');
+  };
+ 
+	// ----------------------- Camera mouse controls ----------------------- //
+	let isDragging = false;
+	let lastX = 0, lastY = 0;
+
+	canvas.addEventListener('mousedown', e => {
+	  isDragging = true;
+	  lastX = e.clientX;
+	  lastY = e.clientY;
+	});
+
+	window.addEventListener('mousemove', e => {
+	  if (!isDragging) return;
+	  const dx = e.clientX - lastX;
+	  const dy = e.clientY - lastY;
+	  lastX = e.clientX;
+	  lastY = e.clientY;
+	  cam.x += dx / cam.zoom;
+	  cam.y += dy / cam.zoom;
+	  draw(true);
+	});
+
+	window.addEventListener('mouseup', () => { isDragging = false; });
+
+	// zoom with mouse wheel
+	canvas.addEventListener('wheel', e => {
+	  e.preventDefault();
+	  const zoomFactor = 1.1;
+	  if (e.deltaY < 0) cam.zoom *= zoomFactor;
+	  else cam.zoom /= zoomFactor;
+	  cam.zoom = Math.max(0.01, Math.min(cam.zoom, 10));
+	  draw(true);
+	}, { passive: false });
+
+  // ----------------------- Seed a blank system so UI shows immediately ----------------------- //
+  Catalog.systems["css_blank"] = {
+    isEnabled: true,
+    numberOfSystems: 1,
+    setLocation: [0,0],
+    systemBackground: "background6.jpg",
+    systemMusic: "music_campaign",
+    entities: [
+      { entity: "star", type: "star_yellow", name: "Helios", radius: 700, coronaRadius: 900 },
+      { entity: "planet", type: "terran", name: "Aurelia", orbitRadius: 3000, orbitDays: 365, radius: 120, conditions: ["habitable","mild_climate","farmland_bountiful"] },
+      { entity: "planet", type: "gas_giant", name: "Zephyrus", orbitRadius: 6000, orbitDays: 1200, radius: 250 }
+    ]
+  };
+
+  // Initialize dropdown + state
+  const sel = document.getElementById('systemSelect');
+  sel.innerHTML = Object.keys(Catalog.systems).map(k=>`<option value="${k}">${k}</option>`).join('');
+  Catalog.selectedKey = "css_blank";
+  entities = Catalog.selected.entities || [];
+  document.getElementById('status').textContent = `1 system loaded`;
+  renderEntityList();
+  draw(true);
+</script>
+
+
+
+</body>
+</html>
